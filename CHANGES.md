@@ -1,5 +1,9 @@
 #Release Notes
 
+0.3.0
+==========
+- Change logic for request retries and host recovery.
+
 0.2.2
 ==========
 - Fix zookeeper cluster state unicode issue
