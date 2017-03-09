@@ -107,6 +107,8 @@ class Zookeeper(object):
         if collection_name is not None:
             return list(active_hosts.get(collection_name, []))
         else:
-            return list(itertools.chain.from_iterable(
+            hosts = list(set(itertools.chain.from_iterable(
                 self._get_active_hosts().values()
-            ))
+            )))
+            hosts.sort()
+            return hosts
