@@ -118,6 +118,7 @@ class SolrRequest(object):
 
             if self.zookeeper is not None:
                 available_hosts = self.zookeeper.get_active_hosts()
+                available_hosts = ["http://%s/solr/" % host for host in available_hosts]
                 self.current_hosts = available_hosts
 
             if not is_retry:
