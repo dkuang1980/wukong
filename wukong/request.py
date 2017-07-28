@@ -1,5 +1,4 @@
 from wukong.zookeeper import Zookeeper
-from requests.exceptions import ConnectionError
 from wukong.errors import SolrError
 import requests
 import random
@@ -73,7 +72,8 @@ class SolrRequest(object):
         def is_still_bad(htime):
             return (time.time() - htime) / 60 < self.check_hosts
 
-        self.bad_hosts = [(host, htime) for host, htime in self.bad_hosts if is_still_bad(htime)]
+        self.bad_hosts = [(host, htime) for host, htime in
+                          self.bad_hosts if is_still_bad(htime)]
 
         bad_hosts = set([h for h, _ in self.bad_hosts])
         available = list(current_hosts - bad_hosts)
@@ -109,16 +109,20 @@ class SolrRequest(object):
 
         except Exception as e:
             log.exception(
-                "An wukong exception occurred while executing the following a request: \n host:{} \nmethod:{} \npath:{} \nparams:{} \nbody:{}".format(
+                "An wukong exception occurred while executing the"
+                " following a request: \n host: {} \nmethod: {} \npath: {}"
+                " \nparams: {} \nbody: {}".format(
                     host, method, path, params, body
                 )
             )
-            log.warn("Marking {} as a bad host for {} min".format(host, self.check_hosts))
+            log.warn("Marking {} as a bad host for {} min"
+                     .format(host, self.check_hosts))
             self.bad_hosts.append((host, time.time()))
 
             if self.zookeeper is not None:
                 available_hosts = self.zookeeper.get_active_hosts()
-                available_hosts = ["http://%s/solr/" % host for host in available_hosts]
+                available_hosts = ["http://%s/solr/" % h
+                                   for h in available_hosts]
                 self.current_hosts = available_hosts
 
             if not is_retry:
