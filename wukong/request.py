@@ -6,7 +6,7 @@ import json
 import time
 import logging
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 try:
     from urlparse import urljoin
@@ -108,14 +108,14 @@ class SolrRequest(object):
             )
 
         except Exception as e:
-            log.exception(
+            logger.exception(
                 "An wukong exception occurred while executing the"
                 " following a request: \n host: {} \nmethod: {} \npath: {}"
                 " \nparams: {} \nbody: {}".format(
                     host, method, path, params, body
                 )
             )
-            log.warn("Marking {} as a bad host for {} min"
+            logger.warn("Marking {} as a bad host for {} min"
                      .format(host, self.check_hosts))
             self.bad_hosts.append((host, time.time()))
 
