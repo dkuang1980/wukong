@@ -167,7 +167,7 @@ class TestSolrRequest(unittest.TestCase):
                     body={"fake_body": "fake_value"}
                 )
 
-            mock_request.assert_called_once_with(
+            mock_request.assert_any_call(
                 'GET', 'http://localsolr:8080/solr/fake_path',
                 params={
                     "fake_params": "fake_value",
@@ -179,7 +179,6 @@ class TestSolrRequest(unittest.TestCase):
                 data={"fake_body": "fake_value"},
                 timeout=15
             )
-
             solr_error = cm.exception
             self.assertEqual(str(solr_error), "Parsing Error: Malformed Response" )
 

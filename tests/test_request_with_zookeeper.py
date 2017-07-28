@@ -84,19 +84,6 @@ class TestSolrZookRequest(unittest.TestCase):
                         body={"fake_body": "fake_value"}
                     )
 
-                    mock_request.assert_any_call(
-                        'GET', 'http://localsolr:8080/solr/fake_path',
-                        params={
-                            "fake_params": "fake_value",
-                            'wt': 'json',
-                            'omitHeader': 'true',
-                            'json.nl': 'map'
-                        },
-                        headers={'content-type': 'application/json'},
-                        data={"fake_body": "fake_value"},
-                        timeout=15
-                    )
-
                     self.assertEqual(client.current_hosts,
                                      ["http://localsolr:7070/solr/"])
 
@@ -144,7 +131,7 @@ class TestSolrZookRequest(unittest.TestCase):
                     self.assertEqual(client.current_hosts, [])
                     solr_error = cm.exception
                     self.assertEqual(str(solr_error),
-                                     "SOLR reporting all nodes as down")
+                                     "Server down!")
 
                 with self.assertRaises(SolrError) as cm:
                     response2 = client.request(
@@ -156,16 +143,15 @@ class TestSolrZookRequest(unittest.TestCase):
 
             solr_error = cm.exception
             self.assertEqual(str(solr_error),
-                             "SOLR reporting all nodes as down")
+                             "Server down!")
 
-    def test_request_refill_pool(self):
+    def test_request_retry_bad_host(self):
 
         client = SolrRequest(["http://localsolr:7070/solr/","http://localsolr:8080/solr/"],
                              zookeeper_hosts=["http://localzook:2181", "http://localzook:2181"])
 
         # simulate an empty pool and a 5 minute old error
-        client.current_hosts = ["http://localsolr:8080/solr/"]
-        client.last_error = time.time() - 5
+        client.bad_hosts = [("http://localsolr:7070/solr/", time.time() - 100), ("http://localsolr:8080/solr/", time.time() - 200)]
 
         with mock.patch('requests.sessions.Session.request') as mock_request:
             fake_response =  Response()
@@ -179,7 +165,71 @@ class TestSolrZookRequest(unittest.TestCase):
                 body={"fake_body": "fake_value"}
             )
 
-            self.assertEqual(client.current_hosts, client.master_hosts)
+            mock_request.assert_any_call(
+                'GET', 'http://localsolr:8080/solr/fake_path',
+                params={
+                    "fake_params": "fake_value",
+                    'wt': 'json',
+                    'omitHeader': 'true',
+                    'json.nl': 'map'
+                },
+                headers={'content-type': 'application/json'},
+                data={"fake_body": "fake_value"},
+                timeout=15
+            )
+
+            self.assertEqual(len(client.bad_hosts), 1)
+            self.assertEqual(client.bad_hosts[0][0], "http://localsolr:7070/solr/")
+
+    def test_request_recover_bad_host(self):
+
+        client = SolrRequest(["http://localsolr:7070/solr/","http://localsolr:8080/solr/"],
+                             zookeeper_hosts=["http://localzook:2181", "http://localzook:2181"])
+
+        # simulate an empty pool and a 5 minute old error
+        client.bad_hosts = [("http://localsolr:7070/solr/", time.time() - 400), ("http://localsolr:8080/solr/", time.time() - 100)]
+
+        with mock.patch('requests.sessions.Session.request') as mock_request:
+            def request(*args, **kwargs):
+                raise ConnectionError("Server down!")
+
+            mock_request.side_effect = request
+            with self.assertRaises(SolrError) as cm:
+                response = client.request(
+                    'fake_path',
+                    {"fake_params": "fake_value"},
+                    'GET',
+                    body={"fake_body": "fake_value"}
+                )
+
+                mock_request.assert_any_call(
+                    'GET', 'http://localsolr:7070/solr/fake_path',
+                    params={
+                        "fake_params": "fake_value",
+                        'wt': 'json',
+                        'omitHeader': 'true',
+                        'json.nl': 'map'
+                    },
+                    headers={'content-type': 'application/json'},
+                    data={"fake_body": "fake_value"},
+                    timeout=15
+                )
+                mock_request.assert_any_call(
+                    'GET', 'http://localsolr:8080/solr/fake_path',
+                    params={
+                        "fake_params": "fake_value",
+                        'wt': 'json',
+                        'omitHeader': 'true',
+                        'json.nl': 'map'
+                    },
+                    headers={'content-type': 'application/json'},
+                    data={"fake_body": "fake_value"},
+                    timeout=15
+                )
+                self.assertEqual(len(client.bad_hosts), 2)
+
+                solr_error = cm.exception
+                self.assertEqual(str(solr_error), "Server down!")
 
     def test_request_no_active_pool(self):
 
@@ -202,8 +252,7 @@ class TestSolrZookRequest(unittest.TestCase):
                 )
 
             solr_error = cm.exception
-            self.assertEqual(str(solr_error),
-                             "SOLR reporting all nodes as down")
+            self.assertEqual(str(solr_error), "Cannot find a host")
 
             # add nodes back to the bool
             client.current_hosts = ["http://localsolr:7070/solr/","http://localsolr:8080/solr/"]

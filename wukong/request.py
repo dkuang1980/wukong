@@ -107,7 +107,7 @@ class SolrRequest(object):
                 timeout=self.timeout
             )
 
-        except Exception:
+        except Exception as e:
             log.exception(
                 "An wukong exception occurred while executing the following a request: \n host:{} \nmethod:{} \npath:{} \nparams:{} \nbody:{}".format(
                     host, method, path, params, body
@@ -124,7 +124,7 @@ class SolrRequest(object):
             if not is_retry:
                 return self.request(path, params, method, body, is_retry=True)
             else:
-                raise
+                raise SolrError(str(e))
 
     def post(self, path, params=None, body=None):
         """
